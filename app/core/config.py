@@ -21,6 +21,7 @@ class AppConfig:
 	max_concurrent_browsers: int = 3
 	poster_grid_cols: int = 5
 	caption_grid_cols: int = 3
+	theme_name: str = "dark_teal.xml"
 
 	# Logging
 	log_level: str = "INFO"
@@ -37,6 +38,7 @@ class AppConfig:
 		self.log_level = os.getenv("APP_LOG_LEVEL", self.log_level)
 		self.poster_grid_cols = int(os.getenv("APP_POSTER_GRID_COLS", self.poster_grid_cols))
 		self.caption_grid_cols = int(os.getenv("APP_CAPTION_GRID_COLS", self.caption_grid_cols))
+		self.theme_name = os.getenv("APP_THEME", self.theme_name)
 		# Allow overriding storage locations
 		data_dir_env = os.getenv("APP_DATA_DIR")
 		logs_dir_env = os.getenv("APP_LOGS_DIR")

@@ -33,6 +33,13 @@ def main() -> None:
 	app = QApplication(sys.argv)
 	app.setApplicationName("FB Group Campaign Manager")
 
+	# Apply theme if available
+	try:
+		from qt_material import apply_stylesheet
+		apply_stylesheet(app, theme=config.theme_name)
+	except Exception:
+		pass
+
 	window = MainWindow(config=config)
 	window.show()
 
