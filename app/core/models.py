@@ -53,7 +53,7 @@ class Poster(Base):
 	tags: Mapped[Optional[dict]] = mapped_column(JSON)
 	width: Mapped[Optional[int]] = mapped_column(Integer)
 	height: Mapped[Optional[int]] = mapped_column(Integer)
-	metadata: Mapped[Optional[dict]] = mapped_column(JSON)
+	image_metadata: Mapped[Optional[dict]] = mapped_column(JSON)
 
 	campaign_tasks: Mapped[List[CampaignTask]] = relationship(back_populates="poster")  # type: ignore[name-defined]
 
