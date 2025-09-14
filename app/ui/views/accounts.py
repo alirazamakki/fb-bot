@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from app.core.config import AppConfig
 from app.services import account_service
+from app.core.playwright_controller import PlaywrightController
 
 
 class AccountManagerView(QWidget):
@@ -29,6 +30,11 @@ class AccountManagerView(QWidget):
 		self._update_btn = QPushButton("Update Selected")
 		self._delete_btn = QPushButton("Delete Selected")
 		self._fetch_groups_btn = QPushButton("Fetch Groups (Stub)")
+		self._open_profile_btn = QPushButton("Open Profile")
+		self._close_profile_btn = QPushButton("Close Profile")
+
+		self._pw = PlaywrightController(config=None)
+		self._ctx = None
 
 		form = QHBoxLayout()
 		self._name.setPlaceholderText("Account name")
@@ -41,6 +47,8 @@ class AccountManagerView(QWidget):
 		form.addWidget(self._update_btn)
 		form.addWidget(self._delete_btn)
 		form.addWidget(self._fetch_groups_btn)
+		form.addWidget(self._open_profile_btn)
+		form.addWidget(self._close_profile_btn)
 
 		self._table = QTableWidget(0, 4)
 		self._table.setHorizontalHeaderLabels(["ID", "Name", "Profile Path", "Email/Phone"])
@@ -60,6 +68,8 @@ class AccountManagerView(QWidget):
 		self._update_btn.clicked.connect(self._on_update)
 		self._delete_btn.clicked.connect(self._on_delete)
 		self._fetch_groups_btn.clicked.connect(self._on_fetch_groups)
+		self._open_profile_btn.clicked.connect(self._on_open_profile)
+		self._close_profile_btn.clicked.connect(self._on_close_profile)
 
 		self._refresh()
 
@@ -122,3 +132,20 @@ class AccountManagerView(QWidget):
 			return
 		count = account_service.stub_fetch_groups(acc_id)
 		QMessageBox.information(self, "Fetch Groups", f"Added {count} sample groups (stub).")
+
+	def _on_open_profile(self) -> None:
+		acc_id = self._selected_id()
+		if not acc_id:
+			QMessageBox.information(self, "Open Profile", "Select an account first.")
+			return
+		acc = next((a for a in account_service.list_accounts() if a.id == acc_id), None)
+		if not acc:
+			return
+		self._pw.start()
+		ctx, page = self._pw.open_persistent(acc.profile_path)
+		self._ctx = ctx
+
+	def _on_close_profile(self) -> None:
+		if self._ctx:
+			self._pw.close_context(self._ctx)
+			self._ctx = None

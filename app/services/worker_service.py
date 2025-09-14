@@ -53,6 +53,8 @@ class WorkerService:
 			if not account or not campaign:
 				return
 			config = campaign.config_json or {}
+			dry_run = bool(config.get("dry_run", False))
+			max_retries = int(config.get("retries", 2))
 			poster_ids = config.get("poster_ids") or []
 			caption_ids = config.get("caption_ids") or []
 			link_ids = config.get("link_ids") or []
@@ -80,21 +82,30 @@ class WorkerService:
 						if self._cancelled:
 							break
 						self._emit("task_start", task_id=task.id, group_id=task.group_id)
-						# Asset picks
 						poster = random.choice(posters) if posters else None
-						caption = random.choice(captions).text if captions else ""
-						link = random.choice(links).url if links else None
-						# Resolve group URL and name
+						caption_text = random.choice(captions).text if captions else ""
+						link_url = random.choice(links).url if links else None
 						group = s.get(Group, task.group_id)
 						group_url = group.url if group and group.url else "https://www.facebook.com/groups"
-						cap_text = build_caption(caption, link, group.name if group else None)
+						cap_text = build_caption(caption_text, link_url, group.name if group else None)
 						poster_path = poster.filepath if poster else None
-						# Attempt post
-						ok = post_to_group(page, group_url, cap_text, poster_path)
-						if ok:
-							task.status = "done"
+
+						ok = True
+						if not dry_run:
+							attempt = 0
+							ok = False
+							while attempt <= max_retries and not ok and not self._cancelled:
+								attempt += 1
+								try:
+									ok = post_to_group(page, group_url, cap_text, poster_path)
+								except Exception as exc:  # noqa: BLE001
+									self._emit("task_error", task_id=task.id, error=str(exc), attempt=attempt)
+									time.sleep(min(60, 2 ** attempt))
 						else:
-							task.status = "failed"
+							# Dry run: simulate success
+							time.sleep(0.5)
+
+						task.status = "done" if ok else "failed"
 						s.flush()
 						self._emit("task_done", task_id=task.id, success=(task.status == "done"))
 			finally:
