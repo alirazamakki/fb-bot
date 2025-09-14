@@ -58,7 +58,7 @@ class MainWindow(QMainWindow):
 		self._nav_list.setFixedWidth(240)
 
 		# Sticky controls under the nav
-		self._btn_refresh = QPushButton("Refresh")
+		self._btn_refresh = QPushButton("Reload")
 		self._btn_clear_cache = QPushButton("Clear Cache")
 		self._btn_refresh.clicked.connect(self._on_global_refresh)
 		self._btn_clear_cache.clicked.connect(self._on_clear_cache)
