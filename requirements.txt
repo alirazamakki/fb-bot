@@ -1,0 +1,23 @@
+# Core UI and app framework
+PySide6>=6.5
+
+# Database ORM
+SQLAlchemy>=2.0
+
+# Scheduling
+APScheduler>=3.10
+
+# Browser automation
+playwright>=1.46
+
+# Logging
+loguru>=0.7
+
+# Crypto for optional local secrets
+cryptography>=42.0
+
+# Env convenience (optional; used in config)
+python-dotenv>=1.0
+
+# Packaging
+pyinstaller>=6.6
