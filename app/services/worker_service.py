@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.core.queue_manager import PoolManager, WorkerTask
 from app.core.db import db_session
-from app.core.models import Campaign, CampaignTask, Account, Group
+from app.core.models import Campaign, CampaignTask, Account, Group, Poster, Caption, Link
 from app.core.playwright_controller import PlaywrightController
 
 ProgressCallback = Callable[[str, dict], None]
@@ -47,34 +47,48 @@ class WorkerService:
 		if self._cancelled:
 			return
 		with db_session() as s:
+			campaign = s.get(Campaign, campaign_id)
 			account = s.get(Account, account_id)
-			if not account:
+			if not account or not campaign:
 				return
+			config = campaign.config_json or {}
+			poster_ids = config.get("poster_ids") or []
+			caption_ids = config.get("caption_ids") or []
+			link_ids = config.get("link_ids") or []
+			delay_min = int(config.get("delay_min", 5))
+			delay_max = int(config.get("delay_max", 10))
+
+			# Prefetch assets into memory for random selection
+			posters = list(s.scalars(select(Poster).where(Poster.id.in_(poster_ids)))) if poster_ids else []
+			captions = list(s.scalars(select(Caption).where(Caption.id.in_(caption_ids)))) if caption_ids else []
+			links = list(s.scalars(select(Link).where(Link.id.in_(link_ids)))) if link_ids else []
+
 			self._emit("account_start", campaign_id=campaign_id, account_id=account_id, account_name=account.name)
 
-			# Iterate tasks for this account
 			pending = list(s.scalars(select(CampaignTask).where(
 				CampaignTask.campaign_id == campaign_id,
 				CampaignTask.account_id == account_id,
 				CampaignTask.status == "pending",
 			).order_by(CampaignTask.id)))
 
-			# Launch the Chromium profile for this account (opens visible browser)
-			pw = PlaywrightController(config=None)  # config not needed for basic open; headless default handled elsewhere
+			pw = PlaywrightController(config=None)
 			pw.start()
 			try:
-				for task in pending:
-					if self._cancelled:
-						break
-					self._emit("task_start", task_id=task.id, group_id=task.group_id)
-					# Open persistent profile context
-					with pw.launch_profile(profile_path=account.profile_path) as (ctx, page):
-						# Navigate to group URL and simulate success (placeholder)
-						# In real implementation, select poster/caption/link and post
+				# Keep profile open for all tasks of this account
+				with pw.launch_profile(profile_path=account.profile_path) as (ctx, page):
+					for task in pending:
+						if self._cancelled:
+							break
+						self._emit("task_start", task_id=task.id, group_id=task.group_id)
+						# Choose assets randomly if provided
+						poster = random.choice(posters) if posters else None
+						caption = random.choice(captions) if captions else None
+						link = random.choice(links) if links else None
+						# TODO: navigate to group URL and perform post
 						time.sleep(random.uniform(0.5, 1.5))
 						task.status = "done"
 						s.flush()
-					self._emit("task_done", task_id=task.id)
+						self._emit("task_done", task_id=task.id, poster_id=getattr(poster, "id", None), caption_id=getattr(caption, "id", None), link_id=getattr(link, "id", None))
 			finally:
 				pw.stop()
 

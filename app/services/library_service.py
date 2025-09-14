@@ -8,7 +8,7 @@ from sqlalchemy import select
 
 from app.core.config import AppConfig
 from app.core.db import db_session
-from app.core.models import Poster, Caption
+from app.core.models import Poster, Caption, Link
 
 
 def add_poster(filepath: str, category: Optional[str] = None, tags_json: Optional[str] = None) -> Poster:
@@ -60,5 +60,25 @@ def list_captions() -> List[Caption]:
 def delete_caption(caption_id: int) -> None:
 	with db_session() as s:
 		obj = s.get(Caption, caption_id)
+		if obj:
+			s.delete(obj)
+
+
+def add_link(url: str, category: Optional[str] = None, weight: int = 1) -> Link:
+	with db_session() as s:
+		link = Link(url=url, category=category, weight=weight)
+		s.add(link)
+		s.flush()
+		return link
+
+
+def list_links() -> List[Link]:
+	with db_session() as s:
+		return list(s.scalars(select(Link).order_by(Link.id.desc())))
+
+
+def delete_link(link_id: int) -> None:
+	with db_session() as s:
+		obj = s.get(Link, link_id)
 		if obj:
 			s.delete(obj)
