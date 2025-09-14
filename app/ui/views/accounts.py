@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 	QTableWidgetItem,
 	QHeaderView,
 	QMessageBox,
+	QAbstractItemView,
 )
 
 from app.core.config import AppConfig
@@ -48,8 +49,8 @@ class AccountManagerView(QWidget):
 		hdr.setSectionResizeMode(1, QHeaderView.Stretch)
 		hdr.setSectionResizeMode(2, QHeaderView.Stretch)
 		hdr.setSectionResizeMode(3, QHeaderView.ResizeToContents)
-		self._table.setSelectionBehavior(self._table.SelectRows)
-		self._table.setEditTriggers(self._table.NoEditTriggers)
+		self._table.setSelectionBehavior(QAbstractItemView.SelectRows)
+		self._table.setEditTriggers(QAbstractItemView.NoEditTriggers)
 
 		root = QVBoxLayout(self)
 		root.addLayout(form)
