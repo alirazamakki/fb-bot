@@ -65,10 +65,11 @@ class CaptionLibraryView(QWidget):
 		row_container = None
 		row_layout = None
 		col_count = 0
+		cols = 3
 		for it in items:
 			if not self._matches(it.category, it.tags):
 				continue
-			if row_layout is None or col_count >= 2:
+			if row_layout is None or col_count >= cols:
 				row_container = QWidget(); row_layout = QHBoxLayout(row_container)
 				row_layout.setAlignment(Qt.AlignLeft)
 				self._grid_layout.addWidget(row_container)
