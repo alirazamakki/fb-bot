@@ -24,7 +24,7 @@ def initialize_database(config: AppConfig) -> None:
 	# SQLite URL
 	db_url = f"sqlite:///{config.database_path}"
 	_engine = create_engine(db_url, echo=False, future=True)
-	_SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, future=True)
+	_SessionLocal = sessionmaker(bind=_engine, autoflush=False, autocommit=False, expire_on_commit=False, future=True)
 	# Import models to ensure table metadata is registered
 	from app.core import models as _models  # noqa: F401
 	Base.metadata.create_all(_engine)
