@@ -49,3 +49,11 @@ def delete_tasks_for_group(group_id: int) -> int:
 	with db_session() as s:
 		res = s.execute(delete(CampaignTask).where(CampaignTask.group_id == group_id))
 		return res.rowcount or 0
+
+
+def delete_campaign(campaign_id: int) -> None:
+	with db_session() as s:
+		s.execute(delete(CampaignTask).where(CampaignTask.campaign_id == campaign_id))
+		camp = s.get(Campaign, campaign_id)
+		if camp:
+			s.delete(camp)

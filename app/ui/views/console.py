@@ -1,10 +1,11 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, QThread, Signal
-from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QTextEdit
+from PySide6.QtWidgets import QWidget, QLabel, QVBoxLayout, QHBoxLayout, QPushButton, QLineEdit, QTextEdit, QComboBox
 
 from app.core.config import AppConfig
 from app.services.worker_service import WorkerService
+from app.services import campaign_service
 
 
 class WorkerThread(QThread):
@@ -24,16 +25,15 @@ class LiveConsoleView(QWidget):
 	def __init__(self, config: AppConfig, parent: QWidget | None = None) -> None:
 		super().__init__(parent)
 		self._config = config
-		self._campaign_id = QLineEdit()
-		self._campaign_id.setPlaceholderText("Campaign ID")
-		self._batch_size = QLineEdit()
-		self._batch_size.setPlaceholderText("Batch size (e.g., 2)")
+		self._campaign_pick = QComboBox()
+		self._campaign_id = QLineEdit(); self._campaign_id.setPlaceholderText("Campaign ID")
+		self._batch_size = QLineEdit(); self._batch_size.setPlaceholderText("Batch size (e.g., 2)")
 		self._run_btn = QPushButton("Run Campaign")
 		self._stop_btn = QPushButton("Stop")
-		self._log = QTextEdit()
-		self._log.setReadOnly(True)
+		self._log = QTextEdit(); self._log.setReadOnly(True)
 
 		head = QHBoxLayout()
+		head.addWidget(self._campaign_pick)
 		head.addWidget(self._campaign_id)
 		head.addWidget(self._batch_size)
 		head.addWidget(self._run_btn)
@@ -45,7 +45,20 @@ class LiveConsoleView(QWidget):
 
 		self._run_btn.clicked.connect(self._on_run)
 		self._stop_btn.clicked.connect(self._on_stop)
+		self._campaign_pick.currentIndexChanged.connect(self._on_pick_change)
 		self._worker: WorkerThread | None = None
+
+		self._refresh_campaigns()
+
+	def _refresh_campaigns(self) -> None:
+		self._campaign_pick.clear()
+		for camp in campaign_service.list_campaigns():
+			self._campaign_pick.addItem(f"#{camp.id} – {camp.name}", camp.id)
+
+	def _on_pick_change(self) -> None:
+		cid = self._campaign_pick.currentData()
+		if cid:
+			self._campaign_id.setText(str(cid))
 
 	def _on_run(self) -> None:
 		try:

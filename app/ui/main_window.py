@@ -21,6 +21,7 @@ from app.ui.views.posters import PosterLibraryView
 from app.ui.views.captions import CaptionLibraryView
 from app.ui.views.links import LinkManagerView
 from app.ui.views.campaigns import CampaignBuilderView
+from app.ui.views.campaigns_list import CampaignsListView
 from app.ui.views.scheduler import SchedulerView
 from app.ui.views.console import LiveConsoleView
 from app.ui.views.logs import LogsView
@@ -61,6 +62,7 @@ class MainWindow(QMainWindow):
 			("captions", "Caption Library", CaptionLibraryView(config)),
 			("links", "Link Manager", LinkManagerView(config)),
 			("campaigns", "Campaign Builder", CampaignBuilderView(config)),
+			("campaigns_list", "Campaigns", CampaignsListView(config)),
 			("scheduler", "Scheduler", SchedulerView(config)),
 			("console", "Live Console", LiveConsoleView(config)),
 			("logs", "Logs & Reports", LogsView(config)),
