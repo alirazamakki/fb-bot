@@ -18,3 +18,6 @@ cryptography>=42.0
 
 # Env convenience (optional; used in config)
 python-dotenv>=1.0
+
+# Packaging
+pyinstaller>=6.6
