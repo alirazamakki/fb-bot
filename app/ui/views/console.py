@@ -14,10 +14,10 @@ class WorkerThread(QThread):
 		super().__init__()
 		self._campaign_id = campaign_id
 		self._batch_size = batch_size
+		self.service = WorkerService(on_progress=lambda ev, p: self.progress.emit(ev, p))
 
 	def run(self) -> None:
-		service = WorkerService(on_progress=lambda ev, p: self.progress.emit(ev, p))
-		service.run_campaign(self._campaign_id, self._batch_size)
+		self.service.run_campaign(self._campaign_id, self._batch_size)
 
 
 class LiveConsoleView(QWidget):
@@ -29,6 +29,7 @@ class LiveConsoleView(QWidget):
 		self._batch_size = QLineEdit()
 		self._batch_size.setPlaceholderText("Batch size (e.g., 2)")
 		self._run_btn = QPushButton("Run Campaign")
+		self._stop_btn = QPushButton("Stop")
 		self._log = QTextEdit()
 		self._log.setReadOnly(True)
 
@@ -36,12 +37,14 @@ class LiveConsoleView(QWidget):
 		head.addWidget(self._campaign_id)
 		head.addWidget(self._batch_size)
 		head.addWidget(self._run_btn)
+		head.addWidget(self._stop_btn)
 
 		root = QVBoxLayout(self)
 		root.addLayout(head)
 		root.addWidget(self._log)
 
 		self._run_btn.clicked.connect(self._on_run)
+		self._stop_btn.clicked.connect(self._on_stop)
 		self._worker: WorkerThread | None = None
 
 	def _on_run(self) -> None:
@@ -63,6 +66,11 @@ class LiveConsoleView(QWidget):
 		self._worker.finished.connect(lambda: self._append("All done."))
 		self._worker.start()
 		self._append(f"Started campaign {cid} with batch {bs}")
+
+	def _on_stop(self) -> None:
+		if self._worker and self._worker.isRunning():
+			self._worker.service.cancel()
+			self._append("Stop requested")
 
 	def _on_progress(self, event: str, payload: dict) -> None:
 		self._append(f"{event}: {payload}")

@@ -27,6 +27,9 @@ class PoolManager:
 		for t in tasks:
 			self._queue.put(t)
 
+	def stop(self) -> None:
+		self._stop.set()
+
 	def run(self, worker_fn: Callable[[WorkerTask], None]) -> None:
 		self._stop.clear()
 		self._threads = []

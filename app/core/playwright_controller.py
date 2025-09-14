@@ -11,7 +11,7 @@ from app.core.config import AppConfig
 class PlaywrightController:
 	"""Helper to manage a persistent Chromium context per account profile."""
 
-	def __init__(self, config: AppConfig) -> None:
+	def __init__(self, config: Optional[AppConfig]) -> None:
 		self._config = config
 		self._pw: Optional[Playwright] = None
 
@@ -32,9 +32,10 @@ class PlaywrightController:
 		assert self._pw is not None
 
 		args = ["--disable-dev-shm-usage"]
+		headless = False if self._config is None else self._config.headless
 		launch_opts = dict(
 			user_data_dir=profile_path,
-			headless=self._config.headless,
+			headless=headless,
 			args=args,
 		)
 		if proxy:
