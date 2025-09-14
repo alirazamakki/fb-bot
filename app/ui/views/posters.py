@@ -6,14 +6,13 @@ from PySide6.QtWidgets import (
 	QHBoxLayout,
 	QLineEdit,
 	QPushButton,
-	QTableWidget,
-	QTableWidgetItem,
-	QHeaderView,
 	QFileDialog,
 	QMessageBox,
 	QLabel,
+	QScrollArea,
 )
 from PySide6.QtGui import QPixmap
+from PySide6.QtCore import Qt
 
 from app.core.config import AppConfig
 from app.services import library_service
@@ -28,7 +27,6 @@ class PosterLibraryView(QWidget):
 		self._category = QLineEdit(); self._category.setPlaceholderText("Category (optional)")
 		self._tags = QLineEdit(); self._tags.setPlaceholderText("Tags JSON (optional)")
 		self._add = QPushButton("Add Poster")
-		self._del = QPushButton("Delete Selected")
 		self._filter = QLineEdit(); self._filter.setPlaceholderText("Filter by category")
 
 		head = QHBoxLayout()
@@ -37,57 +35,69 @@ class PosterLibraryView(QWidget):
 		head.addWidget(self._category)
 		head.addWidget(self._tags)
 		head.addWidget(self._add)
-		head.addWidget(self._del)
 
 		root = QVBoxLayout(self)
 		root.addLayout(head)
 		root.addWidget(self._filter)
 
-		self._table = QTableWidget(0, 6)
-		self._table.setHorizontalHeaderLabels(["ID", "Thumb", "Filename", "Path", "Category", "Tags"])
-		hdr = self._table.horizontalHeader()
-		hdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-		hdr.setSectionResizeMode(1, QHeaderView.ResizeToContents)
-		hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-		hdr.setSectionResizeMode(3, QHeaderView.Stretch)
-		hdr.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-		hdr.setSectionResizeMode(5, QHeaderView.Stretch)
-		root.addWidget(self._table)
+		# Grid area
+		self._scroll = QScrollArea(); self._scroll.setWidgetResizable(True)
+		self._grid_host = QWidget(); self._grid_layout = QVBoxLayout(self._grid_host)
+		self._grid_layout.setAlignment(Qt.AlignTop)
+		self._scroll.setWidget(self._grid_host)
+		root.addWidget(self._scroll)
 
 		self._browse.clicked.connect(self._on_browse)
 		self._add.clicked.connect(self._on_add)
-		self._del.clicked.connect(self._on_delete)
 		self._filter.textChanged.connect(self._refresh)
 
 		self._refresh()
 
 	def _refresh(self) -> None:
+		# clear grid
+		while self._grid_layout.count():
+			child = self._grid_layout.takeAt(0)
+			if child and child.widget():
+				child.widget().deleteLater()
 		items = library_service.list_posters()
 		f = self._filter.text().strip().lower()
-		self._table.setRowCount(0)
+		row_container = None
+		row_layout = None
+		col_count = 0
 		for it in items:
 			if f and (it.category or "").lower().find(f) < 0:
 				continue
-			row = self._table.rowCount()
-			self._table.insertRow(row)
-			self._table.setItem(row, 0, QTableWidgetItem(str(it.id)))
-			# thumb
-			lbl = QLabel()
-			try:
-				pix = QPixmap(it.filepath)
-				if not pix.isNull():
-					self._set_thumb(lbl, pix)
-			except Exception:
-				pass
-			self._table.setCellWidget(row, 1, lbl)
-			self._table.setItem(row, 2, QTableWidgetItem(it.filename or ""))
-			self._table.setItem(row, 3, QTableWidgetItem(it.filepath or ""))
-			self._table.setItem(row, 4, QTableWidgetItem(it.category or ""))
-			self._table.setItem(row, 5, QTableWidgetItem(str(it.tags) if it.tags else ""))
+			if row_layout is None or col_count >= 3:
+				row_container = QWidget(); row_layout = QHBoxLayout(row_container)
+				row_layout.setAlignment(Qt.AlignLeft)
+				self._grid_layout.addWidget(row_container)
+				col_count = 0
 
-	def _set_thumb(self, lbl: QLabel, pix: QPixmap) -> None:
-		scaled = pix.scaledToHeight(64)
-		lbl.setPixmap(scaled)
+			card = self._make_card(it.id, it.filepath, it.filename, it.category, it.tags)
+			row_layout.addWidget(card)
+			col_count += 1
+
+		# spacer
+		sp = QWidget(); sp.setMinimumHeight(1)
+		self._grid_layout.addWidget(sp)
+
+	def _make_card(self, pid: int, path: str, filename: str | None, category: str | None, tags: object) -> QWidget:
+		w = QWidget(); lay = QVBoxLayout(w)
+		img = QLabel()
+		try:
+			pix = QPixmap(path)
+			if not pix.isNull():
+				img.setPixmap(pix.scaledToHeight(120))
+		except Exception:
+			pass
+		title = QLabel((filename or "")[:60])
+		meta = QLabel((category or "") + ("\n" + str(tags) if tags else ""))
+		btns = QHBoxLayout()
+		del_btn = QPushButton("Delete")
+		del_btn.clicked.connect(lambda: self._on_delete(pid))
+		btns.addWidget(del_btn)
+		lay.addWidget(img); lay.addWidget(title); lay.addWidget(meta); lay.addLayout(btns)
+		return w
 
 	def _on_browse(self) -> None:
 		path, _ = QFileDialog.getOpenFileName(self, "Select image", "", "Images (*.png *.jpg *.jpeg *.webp *.gif);;All files (*.*)")
@@ -109,12 +119,9 @@ class PosterLibraryView(QWidget):
 		self._path.clear(); self._category.clear(); self._tags.clear()
 		self._refresh()
 
-	def _on_delete(self) -> None:
-		rows = self._table.selectionModel().selectedRows()
-		if not rows:
-			return
-		for r in rows:
-			id_item = self._table.item(r.row(), 0)
-			if id_item:
-				library_service.delete_poster(int(id_item.text()))
+	def _on_delete(self, pid: int) -> None:
+		try:
+			library_service.delete_poster(pid)
+		except Exception:
+			pass
 		self._refresh()

@@ -6,11 +6,11 @@ from PySide6.QtWidgets import (
 	QHBoxLayout,
 	QLineEdit,
 	QPushButton,
-	QTableWidget,
-	QTableWidgetItem,
-	QHeaderView,
+	QLabel,
+	QScrollArea,
 	QMessageBox,
 )
+from PySide6.QtCore import Qt
 
 from app.core.config import AppConfig
 from app.services import library_service
@@ -20,37 +20,32 @@ class CaptionLibraryView(QWidget):
 	def __init__(self, config: AppConfig, parent: QWidget | None = None) -> None:
 		super().__init__(parent)
 		self._config = config
-		self._text = QLineEdit(); self._text.setPlaceholderText("Caption text (use {LINK}, {GROUP} etc.)")
+		# Compose/test input
+		self._compose = QLineEdit(); self._compose.setPlaceholderText("Compose caption here (use {LINK}, {GROUP})")
 		self._category = QLineEdit(); self._category.setPlaceholderText("Category (optional)")
 		self._tags = QLineEdit(); self._tags.setPlaceholderText("Tags JSON (optional)")
-		self._uniq = QLineEdit(); self._uniq.setPlaceholderText("Uniqueness mode: none/spin/append-random (optional)")
+		self._uniq = QLineEdit(); self._uniq.setPlaceholderText("Uniqueness mode (optional)")
 		self._add = QPushButton("Add Caption")
-		self._del = QPushButton("Delete Selected")
 
 		self._filter_cat = QLineEdit(); self._filter_cat.setPlaceholderText("Filter category")
 		self._filter_tag = QLineEdit(); self._filter_tag.setPlaceholderText("Filter tag substring")
 
 		head = QHBoxLayout();
-		head.addWidget(self._text); head.addWidget(self._category); head.addWidget(self._tags); head.addWidget(self._uniq); head.addWidget(self._add); head.addWidget(self._del)
+		head.addWidget(self._compose); head.addWidget(self._category); head.addWidget(self._tags); head.addWidget(self._uniq); head.addWidget(self._add)
 
 		filters = QHBoxLayout(); filters.addWidget(self._filter_cat); filters.addWidget(self._filter_tag)
 
-		self._table = QTableWidget(0, 5)
-		self._table.setHorizontalHeaderLabels(["ID", "Text", "Category", "Tags", "Uniqueness"])
-		hdr = self._table.horizontalHeader()
-		hdr.setSectionResizeMode(0, QHeaderView.ResizeToContents)
-		hdr.setSectionResizeMode(1, QHeaderView.Stretch)
-		hdr.setSectionResizeMode(2, QHeaderView.ResizeToContents)
-		hdr.setSectionResizeMode(3, QHeaderView.Stretch)
-		hdr.setSectionResizeMode(4, QHeaderView.ResizeToContents)
-
 		root = QVBoxLayout(self)
-		root.addLayout(filters)
 		root.addLayout(head)
-		root.addWidget(self._table)
+		root.addLayout(filters)
+
+		self._scroll = QScrollArea(); self._scroll.setWidgetResizable(True)
+		self._grid_host = QWidget(); self._grid_layout = QVBoxLayout(self._grid_host)
+		self._grid_layout.setAlignment(Qt.AlignTop)
+		self._scroll.setWidget(self._grid_host)
+		root.addWidget(self._scroll)
 
 		self._add.clicked.connect(self._on_add)
-		self._del.clicked.connect(self._on_delete)
 		self._filter_cat.textChanged.connect(self._refresh)
 		self._filter_tag.textChanged.connect(self._refresh)
 
@@ -62,20 +57,43 @@ class CaptionLibraryView(QWidget):
 		return (fc in c) and (ft in t)
 
 	def _refresh(self) -> None:
+		while self._grid_layout.count():
+			child = self._grid_layout.takeAt(0)
+			if child and child.widget():
+				child.widget().deleteLater()
 		items = library_service.list_captions()
-		self._table.setRowCount(0)
+		row_container = None
+		row_layout = None
+		col_count = 0
 		for it in items:
 			if not self._matches(it.category, it.tags):
 				continue
-			row = self._table.rowCount(); self._table.insertRow(row)
-			self._table.setItem(row, 0, QTableWidgetItem(str(it.id)))
-			self._table.setItem(row, 1, QTableWidgetItem(it.text or ""))
-			self._table.setItem(row, 2, QTableWidgetItem(it.category or ""))
-			self._table.setItem(row, 3, QTableWidgetItem(str(it.tags) if it.tags else ""))
-			self._table.setItem(row, 4, QTableWidgetItem(it.uniqueness_mode or ""))
+			if row_layout is None or col_count >= 2:
+				row_container = QWidget(); row_layout = QHBoxLayout(row_container)
+				row_layout.setAlignment(Qt.AlignLeft)
+				self._grid_layout.addWidget(row_container)
+				col_count = 0
+
+			card = self._make_card(it.id, it.text, it.category, it.tags, it.uniqueness_mode)
+			row_layout.addWidget(card)
+			col_count += 1
+		# spacer
+		sp = QWidget(); sp.setMinimumHeight(1)
+		self._grid_layout.addWidget(sp)
+
+	def _make_card(self, cid: int, text: str | None, cat: str | None, tags: object, uniq: str | None) -> QWidget:
+		w = QWidget(); lay = QVBoxLayout(w)
+		lbl = QLabel((text or "")[:240]); lbl.setWordWrap(True)
+		meta = QLabel((cat or "") + ("\n" + str(tags) if tags else "") + (f"\n{uniq}" if uniq else ""))
+		btns = QHBoxLayout()
+		del_btn = QPushButton("Delete")
+		del_btn.clicked.connect(lambda: self._on_delete(cid))
+		btns.addWidget(del_btn)
+		lay.addWidget(lbl); lay.addWidget(meta); lay.addLayout(btns)
+		return w
 
 	def _on_add(self) -> None:
-		text = self._text.text().strip()
+		text = self._compose.text().strip()
 		if not text:
 			QMessageBox.warning(self, "Validation", "Caption text is required.")
 			return
@@ -83,14 +101,11 @@ class CaptionLibraryView(QWidget):
 		tags = self._tags.text().strip() or None
 		uniq = self._uniq.text().strip() or None
 		library_service.add_caption(text=text, category=category, tags_json=tags, uniqueness_mode=uniq)
-		self._text.clear(); self._category.clear(); self._tags.clear(); self._uniq.clear(); self._refresh()
+		self._compose.clear(); self._category.clear(); self._tags.clear(); self._uniq.clear(); self._refresh()
 
-	def _on_delete(self) -> None:
-		rows = self._table.selectionModel().selectedRows()
-		if not rows:
-			return
-		for r in rows:
-			id_item = self._table.item(r.row(), 0)
-			if id_item:
-				library_service.delete_caption(int(id_item.text()))
+	def _on_delete(self, cid: int) -> None:
+		try:
+			library_service.delete_caption(cid)
+		except Exception:
+			pass
 		self._refresh()
