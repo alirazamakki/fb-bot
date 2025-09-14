@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
 	QTableWidgetItem,
 	QHeaderView,
 	QMessageBox,
+	QComboBox,
 )
 
 from app.core.config import AppConfig
@@ -26,13 +27,21 @@ class LinkManagerView(QWidget):
 		self._add = QPushButton("Add Link")
 		self._del = QPushButton("Delete Selected")
 		self._filter = QLineEdit(); self._filter.setPlaceholderText("Filter category")
+		# Saved filters (category only)
+		self._save_name = QLineEdit(); self._save_name.setPlaceholderText("Filter name")
+		self._save_btn = QPushButton("Save Filter")
+		self._apply_combo = QComboBox(); self._apply_combo.setPlaceholderText("Apply saved filter")
+		self._apply_btn = QPushButton("Apply")
+		self._saved_filters: dict[str, str] = {}
 
 		head = QHBoxLayout();
 		head.addWidget(self._url); head.addWidget(self._category); head.addWidget(self._weight); head.addWidget(self._add); head.addWidget(self._del)
 
+		saved = QHBoxLayout(); saved.addWidget(self._filter); saved.addWidget(self._save_name); saved.addWidget(self._save_btn); saved.addWidget(self._apply_combo); saved.addWidget(self._apply_btn)
+
 		root = QVBoxLayout(self)
 		root.addLayout(head)
-		root.addWidget(self._filter)
+		root.addLayout(saved)
 
 		self._table = QTableWidget(0, 4)
 		self._table.setHorizontalHeaderLabels(["ID", "URL", "Category", "Weight"])
@@ -46,7 +55,29 @@ class LinkManagerView(QWidget):
 		self._add.clicked.connect(self._on_add)
 		self._del.clicked.connect(self._on_delete)
 		self._filter.textChanged.connect(self._refresh)
+		self._save_btn.clicked.connect(self._on_save_filter)
+		self._apply_btn.clicked.connect(self._on_apply_filter)
 
+		self._refresh()
+
+	def _on_save_filter(self) -> None:
+		name = self._save_name.text().strip()
+		if not name:
+			return
+		self._saved_filters[name] = self._filter.text().strip()
+		self._rebuild_saved()
+		self._save_name.clear()
+
+	def _rebuild_saved(self) -> None:
+		self._apply_combo.clear()
+		for key in sorted(self._saved_filters.keys()):
+			self._apply_combo.addItem(key)
+
+	def _on_apply_filter(self) -> None:
+		name = self._apply_combo.currentText().strip()
+		if not name or name not in self._saved_filters:
+			return
+		self._filter.setText(self._saved_filters[name])
 		self._refresh()
 
 	def _refresh(self) -> None:

@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
 	QLabel,
 	QScrollArea,
 	QMessageBox,
+	QComboBox,
 )
 from PySide6.QtCore import Qt
 
@@ -29,15 +30,24 @@ class CaptionLibraryView(QWidget):
 
 		self._filter_cat = QLineEdit(); self._filter_cat.setPlaceholderText("Filter category")
 		self._filter_tag = QLineEdit(); self._filter_tag.setPlaceholderText("Filter tag substring")
+		# Saved filters UI (session)
+		self._save_name = QLineEdit(); self._save_name.setPlaceholderText("Filter name")
+		self._save_btn = QPushButton("Save Filter")
+		self._apply_combo = QComboBox()
+		self._apply_combo.setPlaceholderText("Apply saved filter")
+		self._apply_btn = QPushButton("Apply")
+		self._saved_filters: dict[str, tuple[str, str]] = {}
 
 		head = QHBoxLayout();
 		head.addWidget(self._compose); head.addWidget(self._category); head.addWidget(self._tags); head.addWidget(self._uniq); head.addWidget(self._add)
 
 		filters = QHBoxLayout(); filters.addWidget(self._filter_cat); filters.addWidget(self._filter_tag)
+		saved = QHBoxLayout(); saved.addWidget(self._save_name); saved.addWidget(self._save_btn); saved.addWidget(self._apply_combo); saved.addWidget(self._apply_btn)
 
 		root = QVBoxLayout(self)
 		root.addLayout(head)
 		root.addLayout(filters)
+		root.addLayout(saved)
 
 		self._scroll = QScrollArea(); self._scroll.setWidgetResizable(True)
 		self._grid_host = QWidget(); self._grid_layout = QVBoxLayout(self._grid_host)
@@ -48,7 +58,32 @@ class CaptionLibraryView(QWidget):
 		self._add.clicked.connect(self._on_add)
 		self._filter_cat.textChanged.connect(self._refresh)
 		self._filter_tag.textChanged.connect(self._refresh)
+		self._save_btn.clicked.connect(self._on_save_filter)
+		self._apply_btn.clicked.connect(self._on_apply_filter)
 
+		self._refresh()
+
+	def _on_save_filter(self) -> None:
+		name = self._save_name.text().strip()
+		if not name:
+			QMessageBox.warning(self, "Filters", "Enter a filter name.")
+			return
+		self._saved_filters[name] = (self._filter_cat.text().strip(), self._filter_tag.text().strip())
+		self._rebuild_saved()
+		self._save_name.clear()
+
+	def _rebuild_saved(self) -> None:
+		self._apply_combo.clear()
+		for key in sorted(self._saved_filters.keys()):
+			self._apply_combo.addItem(key)
+
+	def _on_apply_filter(self) -> None:
+		name = self._apply_combo.currentText().strip()
+		if not name or name not in self._saved_filters:
+			return
+		cat, tag = self._saved_filters[name]
+		self._filter_cat.setText(cat)
+		self._filter_tag.setText(tag)
 		self._refresh()
 
 	def _matches(self, cat: str | None, tags: object) -> bool:
