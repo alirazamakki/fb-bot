@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Iterable, List, Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, delete
 
 from app.core.db import db_session
 from app.core.models import Campaign, CampaignTask, Account, Group
@@ -35,3 +35,17 @@ def list_campaigns() -> List[Campaign]:
 def list_campaign_tasks(campaign_id: int) -> List[CampaignTask]:
 	with db_session() as s:
 		return list(s.scalars(select(CampaignTask).where(CampaignTask.campaign_id == campaign_id).order_by(CampaignTask.id)))
+
+
+def delete_tasks_for_account(account_id: int) -> int:
+	"""Delete all campaign_tasks referencing this account."""
+	with db_session() as s:
+		res = s.execute(delete(CampaignTask).where(CampaignTask.account_id == account_id))
+		return res.rowcount or 0
+
+
+def delete_tasks_for_group(group_id: int) -> int:
+	"""Delete all campaign_tasks referencing this group."""
+	with db_session() as s:
+		res = s.execute(delete(CampaignTask).where(CampaignTask.group_id == group_id))
+		return res.rowcount or 0

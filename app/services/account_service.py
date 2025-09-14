@@ -7,6 +7,7 @@ from sqlalchemy import select, delete
 
 from app.core.db import db_session
 from app.core.models import Account, Group
+from app.services.campaign_service import delete_tasks_for_account, delete_tasks_for_group
 
 
 def list_accounts() -> List[Account]:
@@ -38,6 +39,8 @@ def update_account(account_id: int, *, name: Optional[str] = None, profile_path:
 
 
 def delete_account(account_id: int) -> None:
+	# Remove campaign tasks that reference this account
+	delete_tasks_for_account(account_id)
 	with db_session() as s:
 		acc = s.get(Account, account_id)
 		if not acc:
@@ -67,6 +70,8 @@ def create_group(account_id: int, name: str, url: str, fb_group_id: Optional[str
 
 
 def delete_group(group_id: int) -> None:
+	# Remove campaign tasks that reference this group
+	delete_tasks_for_group(group_id)
 	with db_session() as s:
 		grp = s.get(Group, group_id)
 		if grp:
