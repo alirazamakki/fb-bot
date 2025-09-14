@@ -1,0 +1,15 @@
+.venv/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+.mypy_cache/
+.pytest_cache/
+dist/
+build/
+*.spec
+.keys/
+.env
+fb_marketer.db
+
