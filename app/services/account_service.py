@@ -50,6 +50,29 @@ def list_groups_for_account(account_id: int) -> List[Group]:
 		return list(s.scalars(select(Group).where(Group.account_id == account_id).order_by(Group.id.desc())))
 
 
+def create_group(account_id: int, name: str, url: str, fb_group_id: Optional[str] = None) -> Group:
+	with db_session() as s:
+		if not s.get(Account, account_id):
+			raise ValueError("Account not found")
+		grp = Group(
+			fb_group_id=fb_group_id or url,
+			account_id=account_id,
+			name=name,
+			url=url,
+			posting_permission=True,
+		)
+		s.add(grp)
+		s.flush()
+		return grp
+
+
+def delete_group(group_id: int) -> None:
+	with db_session() as s:
+		grp = s.get(Group, group_id)
+		if grp:
+			s.delete(grp)
+
+
 def stub_fetch_groups(account_id: int) -> int:
 	"""Stub: create a couple of sample groups for the account if none exist."""
 	with db_session() as s:
