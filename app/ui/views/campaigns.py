@@ -38,8 +38,7 @@ class CampaignBuilderView(QWidget):
 		self._filter_tag = QLineEdit(); self._filter_tag.setPlaceholderText("Tag filter substring")
 		self._apply_filter = QPushButton("Apply Filters")
 
-		# Options
-		self._batch = QLineEdit(); self._batch.setPlaceholderText("Batch size (e.g., 2)")
+		# Options (batch size removed; controlled globally in Settings/Console)
 		self._delay_min = QLineEdit(); self._delay_min.setPlaceholderText("Delay min (sec)")
 		self._delay_max = QLineEdit(); self._delay_max.setPlaceholderText("Delay max (sec)")
 		self._rotation = QComboBox(); self._rotation.addItems(["random", "round_robin", "per_account"]) 
@@ -52,7 +51,7 @@ class CampaignBuilderView(QWidget):
 		top = QHBoxLayout(); top.addWidget(self._name); top.addWidget(self._create_btn); top.addWidget(self._preview_btn)
 		filters = QHBoxLayout(); filters.addWidget(self._filter_category); filters.addWidget(self._filter_tag); filters.addWidget(self._apply_filter)
 		opts = QHBoxLayout();
-		opts.addWidget(self._batch); opts.addWidget(self._delay_min); opts.addWidget(self._delay_max); opts.addWidget(self._rotation); opts.addWidget(self._dry_run); opts.addWidget(self._retries)
+		opts.addWidget(self._delay_min); opts.addWidget(self._delay_max); opts.addWidget(self._rotation); opts.addWidget(self._dry_run); opts.addWidget(self._retries)
 
 		root = QVBoxLayout(self)
 		root.addLayout(top)
@@ -108,14 +107,12 @@ class CampaignBuilderView(QWidget):
 		caption_ids = self._collect_ids(self._captions)
 		link_ids = self._collect_ids(self._links)
 		try:
-			batch = int(self._batch.text().strip() or "2")
 			dmin = int(self._delay_min.text().strip() or "5")
 			dmax = int(self._delay_max.text().strip() or "10")
 			retries = int(self._retries.text().strip() or "2")
 		except ValueError:
-			raise ValueError("Batch/delay/retries must be integers")
+			raise ValueError("Delay/retries must be integers")
 		config = {
-			"batch_size": batch,
 			"delay_min": dmin,
 			"delay_max": dmax,
 			"rotation_mode": self._rotation.currentText(),
@@ -162,4 +159,4 @@ class CampaignBuilderView(QWidget):
 			return
 		camp = campaign_service.create_campaign(name=name, config=config, account_ids=account_ids)
 		QMessageBox.information(self, "Campaign Created", f"Created campaign #{camp.id} with tasks.")
-		self._name.clear(); self._batch.clear(); self._delay_min.clear(); self._delay_max.clear(); self._retries.clear()
+		self._name.clear(); self._delay_min.clear(); self._delay_max.clear(); self._retries.clear()
