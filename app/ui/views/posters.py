@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
 	QLabel,
 	QScrollArea,
 )
-from PySide6.QtGui import QPixmap
+from PySide6.QtGui import QPixmap, QDragEnterEvent, QDropEvent
 from PySide6.QtCore import Qt
 
 from app.core.config import AppConfig
@@ -22,6 +22,7 @@ class PosterLibraryView(QWidget):
 	def __init__(self, config: AppConfig, parent: QWidget | None = None) -> None:
 		super().__init__(parent)
 		self._config = config
+		self.setAcceptDrops(True)
 		self._path = QLineEdit(); self._path.setPlaceholderText("Image file path")
 		self._browse = QPushButton("Browse…")
 		self._category = QLineEdit(); self._category.setPlaceholderText("Category (optional)")
@@ -51,6 +52,21 @@ class PosterLibraryView(QWidget):
 		self._add.clicked.connect(self._on_add)
 		self._filter.textChanged.connect(self._refresh)
 
+		self._refresh()
+
+	def dragEnterEvent(self, event: QDragEnterEvent) -> None:
+		if event.mimeData().hasUrls():
+			event.acceptProposedAction()
+
+	def dropEvent(self, event: QDropEvent) -> None:
+		for url in event.mimeData().urls():
+			path = url.toLocalFile()
+			if not path:
+				continue
+			try:
+				library_service.add_poster(path)
+			except Exception:
+				pass
 		self._refresh()
 
 	def _refresh(self) -> None:

@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import Dict, List, Tuple
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence, QAction
 from PySide6.QtWidgets import (
 	QMainWindow,
 	QWidget,
@@ -31,6 +32,7 @@ from app.ui.views.scheduler import SchedulerView
 from app.ui.views.console import LiveConsoleView
 from app.ui.views.logs import LogsView
 from app.ui.views.settings import SettingsView
+from app.ui.views.command_palette import CommandPaletteDialog
 
 
 @dataclass(frozen=True)
@@ -104,12 +106,54 @@ class MainWindow(QMainWindow):
 		self._nav_list.currentRowChanged.connect(self._stack.setCurrentIndex)
 		self._nav_list.setCurrentRow(0)
 
+		# Shortcuts & command palette
+		self._add_shortcuts()
+
 	def _add_section(self, key: str, title: str, widget: QWidget) -> None:
 		section = Section(key=key, title=title, widget=widget)
 		self._sections[key] = section
 		item = QListWidgetItem(title)
 		self._nav_list.addItem(item)
 		self._stack.addWidget(widget)
+
+	def _actions_for_palette(self) -> List[Tuple[str, callable]]:
+		return [
+			("Go: Dashboard", lambda: self._nav_list.setCurrentRow(0)),
+			("Go: Account Manager", lambda: self._nav_list.setCurrentRow(1)),
+			("Go: Group Manager", lambda: self._nav_list.setCurrentRow(2)),
+			("Go: Poster Library", lambda: self._nav_list.setCurrentRow(3)),
+			("Go: Caption Library", lambda: self._nav_list.setCurrentRow(4)),
+			("Go: Link Manager", lambda: self._nav_list.setCurrentRow(5)),
+			("Go: Campaign Builder", lambda: self._nav_list.setCurrentRow(6)),
+			("Go: Campaigns", lambda: self._nav_list.setCurrentRow(7)),
+			("Go: Scheduler", lambda: self._nav_list.setCurrentRow(8)),
+			("Go: Live Console", lambda: self._nav_list.setCurrentRow(9)),
+			("Go: Logs", lambda: self._nav_list.setCurrentRow(10)),
+			("Go: Settings", lambda: self._nav_list.setCurrentRow(11)),
+			("Reload", self._on_global_refresh),
+		]
+
+	def _open_palette(self) -> None:
+		dlg = CommandPaletteDialog(self._actions_for_palette(), parent=self)
+		dlg.exec()
+
+	def _add_shortcuts(self) -> None:
+		# Command palette Ctrl+K
+		pal = QAction(self)
+		pal.setShortcut(QKeySequence("Ctrl+K"))
+		pal.triggered.connect(self._open_palette)
+		self.addAction(pal)
+		# New campaign: N
+		newc = QAction(self)
+		newc.setShortcut(QKeySequence("N"))
+		newc.triggered.connect(lambda: self._nav_list.setCurrentRow(6))
+		self.addAction(newc)
+		# Reload: R
+		rel = QAction(self)
+		rel.setShortcut(QKeySequence("R"))
+		rel.triggered.connect(self._on_global_refresh)
+		self.addAction(rel)
+		# Esc: close current dialogs/palette handled by Qt by default
 
 	def _on_global_refresh(self) -> None:
 		# Best-effort refresh of current view
