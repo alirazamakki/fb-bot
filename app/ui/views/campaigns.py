@@ -27,6 +27,7 @@ class CampaignBuilderView(QWidget):
 		self._name = QLineEdit(); self._name.setPlaceholderText("Campaign name")
 		self._create_btn = QPushButton("Create Campaign")
 		self._preview_btn = QPushButton("Preview Tasks")
+		self._help_btn = QPushButton("Help")
 
 		# Accounts selection remains as list
 		self._accounts = QListWidget(); self._accounts.setSelectionMode(QListWidget.MultiSelection)
@@ -49,10 +50,26 @@ class CampaignBuilderView(QWidget):
 		self._dry_run = QComboBox(); self._dry_run.addItems(["DRY_RUN", "REAL_POST"]) 
 		self._retries = QLineEdit(); self._retries.setPlaceholderText("Retries (e.g., 2)")
 
+		# Tooltips
+		self._rotation.setToolTip(
+			"Rotation modes:\n"
+			"- random: pick a random poster/caption/link, avoiding immediate repeats.\n"
+			"- round_robin: cycle through selected items in order for the campaign.\n"
+			"- per_account: keep a separate cycle per account."
+		)
+		self._dry_run.setToolTip(
+			"Posting mode:\n"
+			"- DRY_RUN: simulate posting without clicking Post (safe test).\n"
+			"- REAL_POST: actually click Post in the group composer."
+		)
+		self._delay_min.setToolTip("Minimum delay (seconds) between posts for the same account.")
+		self._delay_max.setToolTip("Maximum delay (seconds) between posts for the same account.")
+		self._retries.setToolTip("Auto-retry attempts on failure (exponential backoff).")
+
 		# Preview box
 		self._preview = QTextEdit(); self._preview.setReadOnly(True)
 
-		top = QHBoxLayout(); top.addWidget(self._name); top.addWidget(self._create_btn); top.addWidget(self._preview_btn)
+		top = QHBoxLayout(); top.addWidget(self._name); top.addWidget(self._create_btn); top.addWidget(self._preview_btn); top.addWidget(self._help_btn)
 		pick = QHBoxLayout(); pick.addWidget(self._pick_posters); pick.addWidget(self._pick_captions); pick.addWidget(self._pick_links)
 		opts = QHBoxLayout(); opts.addWidget(self._delay_min); opts.addWidget(self._delay_max); opts.addWidget(self._rotation); opts.addWidget(self._dry_run); opts.addWidget(self._retries)
 
@@ -65,6 +82,7 @@ class CampaignBuilderView(QWidget):
 
 		self._create_btn.clicked.connect(self._on_create)
 		self._preview_btn.clicked.connect(self._on_preview)
+		self._help_btn.clicked.connect(self._on_help)
 		self._refresh_accounts()
 
 	def _refresh_accounts(self) -> None:
@@ -144,3 +162,17 @@ class CampaignBuilderView(QWidget):
 		camp = campaign_service.create_campaign(name=name, config=config, account_ids=account_ids)
 		QMessageBox.information(self, "Campaign Created", f"Created campaign #{camp.id} with tasks.")
 		self._name.clear(); self._delay_min.clear(); self._delay_max.clear(); self._retries.clear()
+
+	def _on_help(self) -> None:
+		msg = (
+			"Rotation modes:\n"
+			"- random: pick random items; avoids immediate repeats.\n"
+			"- round_robin: cycle through items in order for the campaign.\n"
+			"- per_account: a separate cycle per account.\n\n"
+			"Posting mode:\n"
+			"- DRY_RUN: simulate without clicking Post (safe test).\n"
+			"- REAL_POST: actually posts in groups.\n\n"
+			"Delays: waits a random time between Delay min and Delay max seconds after each post.\n"
+			"Retries: on failure, retries with exponential backoff (up to the number you set)."
+		)
+		QMessageBox.information(self, "Help - Campaign Options", msg)
