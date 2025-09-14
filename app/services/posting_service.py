@@ -3,6 +3,8 @@ from __future__ import annotations
 import re
 import time
 from typing import Optional
+from datetime import datetime
+from pathlib import Path
 
 from loguru import logger
 from playwright.sync_api import Page, TimeoutError as PlaywrightTimeoutError
@@ -36,12 +38,20 @@ def _attach_image_if_any(page: Page, poster_path: Optional[str]) -> None:
 	)
 	try:
 		file_input = page.locator("input[type=file]").first
-		file_input.set_input_files(poster_path, timeout=8000)
+		file_input.set_input_files(poster_path, timeout=12000)
 	except Exception:
 		logger.warning("Could not find file input to attach poster")
 
 
 def _open_composer(page: Page, timeout_s: int) -> bool:
+	# Try switching to Discussion tab first
+	for lbl in ["Discussion", "Posts", "Featured"]:
+		try:
+			page.get_by_role("link", name=re.compile(lbl, re.I)).first.click(timeout=2000)
+			page.wait_for_load_state("networkidle", timeout=3000)
+		except Exception:
+			pass
+	# Candidate editors/buttons
 	candidates = [
 		lambda: page.get_by_placeholder(re.compile("Write.*|What's on your mind|Write something", re.I)).first,
 		lambda: page.get_by_role("textbox").first,
@@ -57,7 +67,20 @@ def _open_composer(page: Page, timeout_s: int) -> bool:
 	return False
 
 
-def post_to_group(page: Page, group_url: str, caption_text: str, poster_path: Optional[str], *, timeout_s: int = 35) -> bool:
+def _save_debug(page: Page, note: str) -> None:
+	try:
+		logs = Path("logs"); logs.mkdir(exist_ok=True)
+		stamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S_%f")
+		png = logs / f"fb_debug_{stamp}.png"
+		html = logs / f"fb_debug_{stamp}.html"
+		page.screenshot(path=str(png), full_page=True)
+		html.write_text(page.content())
+		logger.error(f"Saved debug artifacts: {png} {html} ({note})")
+	except Exception:
+		pass
+
+
+def post_to_group(page: Page, group_url: str, caption_text: str, poster_path: Optional[str], *, timeout_s: int = 60) -> bool:
 	logger.info(f"Navigating to group {group_url}")
 	page.goto(group_url, wait_until="load")
 	try:
@@ -66,6 +89,7 @@ def post_to_group(page: Page, group_url: str, caption_text: str, poster_path: Op
 		pass
 	# Open composer
 	if not _open_composer(page, timeout_s):
+		_save_debug(page, "composer_not_open")
 		raise RuntimeError("Could not open post composer")
 	# Fill caption
 	try:
@@ -79,6 +103,7 @@ def post_to_group(page: Page, group_url: str, caption_text: str, poster_path: Op
 	# Click Post / Share
 	clicked_post = _try_click(page, name="Post") or _try_click(page, name="Share now") or _try_click(page, name="Post now")
 	if not clicked_post:
+		_save_debug(page, "post_button_not_found")
 		raise RuntimeError("Could not find Post button")
 	try:
 		page.wait_for_load_state("networkidle", timeout=timeout_s * 1000)
