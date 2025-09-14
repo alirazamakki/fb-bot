@@ -14,6 +14,8 @@ from PySide6.QtWidgets import (
 	QListWidgetItem,
 	QTextEdit,
 )
+from PySide6.QtCharts import QChart, QChartView, QPieSeries
+from PySide6.QtGui import QPainter
 
 from app.core.config import AppConfig
 from app.core.db import db_session
@@ -45,6 +47,10 @@ class DashboardView(QWidget):
 		self._overview_form.addRow("Tasks (done)", self._lbl_tasks_done)
 		self._overview_form.addRow("Tasks (failed)", self._lbl_tasks_failed)
 
+		# Task status chart
+		self._chart_view = QChartView()
+		self._chart_view.setRenderHint(QPainter.Antialiasing)
+
 		# Recent campaigns
 		self._campaigns_box = QGroupBox("Recent Campaigns")
 		self._campaigns_list = QListWidget()
@@ -64,6 +70,7 @@ class DashboardView(QWidget):
 		# Layout
 		top = QHBoxLayout()
 		top.addWidget(self._overview_box, 1)
+		top.addWidget(self._chart_view, 1)
 		top.addWidget(self._campaigns_box, 1)
 		root = QVBoxLayout(self)
 		root.addLayout(top)
@@ -91,6 +98,22 @@ class DashboardView(QWidget):
 			self._lbl_tasks_running.setText(str(running))
 			self._lbl_tasks_done.setText(str(done))
 			self._lbl_tasks_failed.setText(str(failed))
+
+			# Chart: pie of task statuses
+			series = QPieSeries()
+			if pending:
+				series.append(f"Pending ({pending})", pending)
+			if running:
+				series.append(f"Running ({running})", running)
+			if done:
+				series.append(f"Done ({done})", done)
+			if failed:
+				series.append(f"Failed ({failed})", failed)
+			chart = QChart()
+			chart.addSeries(series)
+			chart.setTitle("Task Status Distribution")
+			chart.legend().setVisible(True)
+			self._chart_view.setChart(chart)
 
 			# Recent campaigns (last 10)
 			self._campaigns_list.clear()
