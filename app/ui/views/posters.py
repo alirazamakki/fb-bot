@@ -61,14 +61,14 @@ class PosterLibraryView(QWidget):
 				child.widget().deleteLater()
 		items = library_service.list_posters()
 		f = self._filter.text().strip().lower()
-		self._table_cols = 5
+		cols = max(1, int(self._config.poster_grid_cols))
 		row_container = None
 		row_layout = None
 		col_count = 0
 		for it in items:
 			if f and (it.category or "").lower().find(f) < 0:
 				continue
-			if row_layout is None or col_count >= self._table_cols:
+			if row_layout is None or col_count >= cols:
 				row_container = QWidget(); row_layout = QHBoxLayout(row_container)
 				row_layout.setAlignment(Qt.AlignLeft)
 				self._grid_layout.addWidget(row_container)

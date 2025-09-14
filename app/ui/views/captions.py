@@ -65,7 +65,7 @@ class CaptionLibraryView(QWidget):
 		row_container = None
 		row_layout = None
 		col_count = 0
-		cols = 3
+		cols = max(1, int(self._config.caption_grid_cols))
 		for it in items:
 			if not self._matches(it.category, it.tags):
 				continue
