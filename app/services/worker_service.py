@@ -10,6 +10,7 @@ from app.core.queue_manager import PoolManager, WorkerTask
 from app.core.db import db_session
 from app.core.models import Campaign, CampaignTask, Account, Group, Poster, Caption, Link
 from app.core.playwright_controller import PlaywrightController
+from app.services.posting_service import post_to_group, build_caption
 
 ProgressCallback = Callable[[str, dict], None]
 
@@ -74,21 +75,28 @@ class WorkerService:
 			pw = PlaywrightController(config=None)
 			pw.start()
 			try:
-				# Keep profile open for all tasks of this account
 				with pw.launch_profile(profile_path=account.profile_path) as (ctx, page):
 					for task in pending:
 						if self._cancelled:
 							break
 						self._emit("task_start", task_id=task.id, group_id=task.group_id)
-						# Choose assets randomly if provided
+						# Asset picks
 						poster = random.choice(posters) if posters else None
-						caption = random.choice(captions) if captions else None
-						link = random.choice(links) if links else None
-						# TODO: navigate to group URL and perform post
-						time.sleep(random.uniform(0.5, 1.5))
-						task.status = "done"
+						caption = random.choice(captions).text if captions else ""
+						link = random.choice(links).url if links else None
+						# Resolve group URL and name
+						group = s.get(Group, task.group_id)
+						group_url = group.url if group and group.url else "https://www.facebook.com/groups"
+						cap_text = build_caption(caption, link, group.name if group else None)
+						poster_path = poster.filepath if poster else None
+						# Attempt post
+						ok = post_to_group(page, group_url, cap_text, poster_path)
+						if ok:
+							task.status = "done"
+						else:
+							task.status = "failed"
 						s.flush()
-						self._emit("task_done", task_id=task.id, poster_id=getattr(poster, "id", None), caption_id=getattr(caption, "id", None), link_id=getattr(link, "id", None))
+						self._emit("task_done", task_id=task.id, success=(task.status == "done"))
 			finally:
 				pw.stop()
 
