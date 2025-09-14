@@ -43,6 +43,15 @@ def _attach_image_if_any(page: Page, poster_path: Optional[str]) -> None:
 		logger.warning("Could not find file input to attach poster")
 
 
+def _scroll_down(page: Page, times: int = 2) -> None:
+	for _ in range(times):
+		try:
+			page.mouse.wheel(0, 800)
+		except Exception:
+			pass
+		time.sleep(0.4)
+
+
 def _open_composer(page: Page, timeout_s: int) -> bool:
 	# Try switching to Discussion tab first
 	for lbl in ["Discussion", "Posts", "Featured"]:
@@ -51,7 +60,18 @@ def _open_composer(page: Page, timeout_s: int) -> bool:
 			page.wait_for_load_state("networkidle", timeout=3000)
 		except Exception:
 			pass
-	# Candidate editors/buttons
+	# Scroll a bit so the composer placeholder is in view
+	_scroll_down(page, times=3)
+	# Prefer exact placeholder first
+	try:
+		box = page.get_by_placeholder("Write something...").first
+		box.click(timeout=timeout_s * 1000)
+		# Wait for a contenteditable area to appear in the popup/composer
+		page.locator('[contenteditable="true"]').first.wait_for(timeout=timeout_s * 1000)
+		return True
+	except Exception:
+		pass
+	# Fallback candidates
 	candidates = [
 		lambda: page.get_by_placeholder(re.compile("Write.*|What's on your mind|Write something", re.I)).first,
 		lambda: page.get_by_role("textbox").first,
@@ -61,6 +81,7 @@ def _open_composer(page: Page, timeout_s: int) -> bool:
 		try:
 			el = getter()
 			el.click(timeout=timeout_s * 1000)
+			page.locator('[contenteditable="true"]').first.wait_for(timeout=timeout_s * 1000)
 			return True
 		except Exception:
 			continue
@@ -87,13 +108,14 @@ def post_to_group(page: Page, group_url: str, caption_text: str, poster_path: Op
 		page.wait_for_load_state("networkidle", timeout=timeout_s * 1000)
 	except PlaywrightTimeoutError:
 		pass
-	# Open composer
+	# Open composer via explicit scroll -> click "Write something..."
 	if not _open_composer(page, timeout_s):
 		_save_debug(page, "composer_not_open")
 		raise RuntimeError("Could not open post composer")
 	# Fill caption
 	try:
 		editable = page.locator('[contenteditable="true"]').first
+		editable.click()
 		editable.type(caption_text, delay=10)
 	except Exception:
 		logger.warning("Editable not found, typing to page")
